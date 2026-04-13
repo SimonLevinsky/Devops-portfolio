@@ -1,0 +1,26 @@
+name: Deploy App
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build Docker
+      run: docker build -t devops-app ./app
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: ec2-user
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          docker stop devops-app || true
+          docker rm devops-app || true
+          docker run -d -p 80:5000 devops-app
