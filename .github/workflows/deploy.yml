@@ -3,42 +3,45 @@ name: Deploy App
 
 on:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Build Docker image
-      run: docker build -t devops-app ./app
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.5
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ec2-user
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            echo "Stopping ALL containers..."
+            docker stop $(docker ps -q) || true
 
-    - name: Deploy to EC2 via SSH
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.SERVER_IP }}
-        username: ec2-user
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          echo "Stopping ALL containers..."
-          docker stop $(docker ps -q) || true
+            echo "Removing ALL containers..."
+            docker rm $(docker ps -aq) || true
 
-          echo "Removing ALL containers..."
-          docker rm $(docker ps -aq) || true
+            echo "Removing old image..."
+            docker rmi devops-app || true
 
-          echo "Removing old image..."
-          docker rmi devops-app || true
+            echo "Cloning or updating repo..."
+            if [ ! -d "~/Devops-portfolio" ]; then
+              git clone https://github.com/SimonLevinsky/Devops-portfolio.git ~/Devops-portfolio
+            fi
 
-          echo "Pulling latest code..."
-          cd ~/Devops-portfolio || git clone https://github.com/SimonLevinsky/Devops-portfolio.git
-          cd ~/Devops-portfolio/app
+            cd ~/Devops-portfolio
+            git pull
 
-          echo "Building new image on server..."
-          docker build -t devops-app .
+            cd app
 
-          echo "Starting new container..."
-          docker run -d -p 80:5000 --name devops-app devops-app
-```
+            echo "Building new image..."
+            docker build -t devops-app .
+
+            echo "Starting new container..."
+            docker run -d -p 80:5000 --name devops-app devops-app
