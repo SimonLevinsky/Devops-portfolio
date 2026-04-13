@@ -1,3 +1,4 @@
+---
 name: Deploy App
 
 on:
@@ -44,4 +45,3 @@ jobs:
 
             echo "Running container"
             docker run -d -p 80:5000 --name devops-app devops-app
-```
